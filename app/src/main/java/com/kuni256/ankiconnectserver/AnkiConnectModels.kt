@@ -1,5 +1,6 @@
 package com.kuni256.ankiconnectserver
 
+// --- データ構造定義のみ ---
 data class AnkiConnectRequest(val action: String, val version: Int, val params: Params?)
 data class Params(val note: Note?)
 data class Note(
