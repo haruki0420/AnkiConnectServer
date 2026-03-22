@@ -1,6 +1,6 @@
 package com.kuni256.ankiconnectserver
 
-// --- データ構造定義のみ ---
+// サーバーが受信するリクエストの構造
 data class AnkiConnectRequest(val action: String, val version: Int, val params: Params?)
 data class Params(val note: Note?)
 data class Note(
@@ -13,4 +13,6 @@ data class Note(
 )
 data class NoteOptions(val allowDuplicate: Boolean, val duplicateScope: String)
 data class Picture(val data: String, val filename: String, val fields: List<String>?)
+
+// サーバーが返すレスポンスの構造
 data class AnkiConnectResponse(val result: Any?, val error: String?)

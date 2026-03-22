@@ -36,39 +36,9 @@
         android:background="#FFFFFF"
         android:padding="16dp"
         android:elevation="2dp">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="必須権限のステータス"
-            android:textColor="#7F8C8D"
-            android:textSize="12sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/tv_perm_storage"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="ストレージ権限：未確認"
-            android:textColor="#E74C3C"
-            android:textSize="14sp" />
-
-        <TextView
-            android:id="@+id/tv_perm_notification"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="通　知　権　限：未確認"
-            android:textColor="#E74C3C"
-            android:textSize="14sp" />
-
-        <Button
-            android:id="@+id/btn_request_perms"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="権限を許可する" />
+        <TextView android:id="@+id/tv_perm_storage" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="ストレージ権限：確認中..." />
+        <TextView android:id="@+id/tv_perm_notification" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="通知権限：確認中..." />
+        <Button android:id="@+id/btn_request_perms" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="権限を許可する" />
     </LinearLayout>
 
     <LinearLayout
@@ -79,71 +49,19 @@
         android:background="#FFFFFF"
         android:padding="16dp"
         android:elevation="2dp">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="1. Ankiプロジェクトフォルダ (collection.anki2がある場所)"
-            android:textColor="#7F8C8D"
-            android:textSize="12sp" />
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
-            <Button
-                android:id="@+id/btn_anki_folder"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="選択" />
-            <TextView
-                android:id="@+id/tv_anki_folder"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:text="未設定"
-                android:textColor="#2C3E50"
-                android:ellipsize="middle"
-                android:singleLine="true" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="1. Ankiプロジェクトフォルダ" android:textSize="12sp" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <Button android:id="@+id/btn_anki_folder" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="選択" />
+            <TextView android:id="@+id/tv_anki_folder" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:text="未設定" android:singleLine="true" android:ellipsize="middle" />
         </LinearLayout>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="2. ログ保存フォルダ"
-            android:textColor="#7F8C8D"
-            android:textSize="12sp" />
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
-            <Button
-                android:id="@+id/btn_log_folder"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="選択" />
-            <TextView
-                android:id="@+id/tv_log_folder"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:text="未設定"
-                android:textColor="#2C3E50"
-                android:ellipsize="middle"
-                android:singleLine="true" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:text="2. ログ保存フォルダ" android:textSize="12sp" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <Button android:id="@+id/btn_log_folder" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="選択" />
+            <TextView android:id="@+id/tv_log_folder" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:text="未設定" android:singleLine="true" android:ellipsize="middle" />
         </LinearLayout>
     </LinearLayout>
 
-    <CheckBox
-        android:id="@+id/cb_dev_mode"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="開発者モード (詳細ログを表示)"
-        android:textColor="#34495E"
-        android:textStyle="bold" />
+    <CheckBox android:id="@+id/cb_dev_mode" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:text="開発者モード (詳細ログを表示)" />
 
     <ScrollView
         android:id="@+id/scroll_logs"
@@ -154,13 +72,6 @@
         android:background="#2C3E50"
         android:padding="12dp"
         android:visibility="gone">
-        <TextView
-            android:id="@+id/tv_logs"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:fontFamily="monospace"
-            android:textColor="#ECF0F1"
-            android:textSize="12sp"
-            android:text="[System] ログ待機中...\n" />
+        <TextView android:id="@+id/tv_logs" android:layout_width="match_parent" android:layout_height="wrap_content" android:fontFamily="monospace" android:textColor="#ECF0F1" android:textSize="12sp" />
     </ScrollView>
 </LinearLayout>

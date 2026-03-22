@@ -27,7 +27,7 @@ class AnkiConnectService : Service() {
     private var server: CIOApplicationEngine? = null
     private val TAG = "AnkiConnectServer"
 
-    // ★ 追加：Activity側でON/OFF状態を判定するためのフラグ
+    // ★ 復活：UIのスイッチと連動するためのフラグ
     companion object {
         var isRunning = false
     }
@@ -53,8 +53,10 @@ class AnkiConnectService : Service() {
         try {
             server = embeddedServer(CIO, port = 8765, host = "127.0.0.1") {
                 install(CORS) {
-                    allowMethod(HttpMethod.Post); allowMethod(HttpMethod.Options)
-                    allowHeader(HttpHeaders.ContentType); allowHeader("Access-Control-Request-Private-Network")
+                    allowMethod(HttpMethod.Post)
+                    allowMethod(HttpMethod.Options)
+                    allowHeader(HttpHeaders.ContentType)
+                    allowHeader("Access-Control-Request-Private-Network")
                     anyHost()
                 }
                 routing {
@@ -73,22 +75,23 @@ class AnkiConnectService : Service() {
                                 note?.picture?.forEach { saveMediaFast(it.filename, it.data) }
 
                                 val id = upsertAnkiNote(note)
-                                call.respondText(Gson().toJson(AnkiConnectResponse(id, null)), ContentType.Application.Json)
-                                if (id == null) sendLog("❌ 追加・更新失敗")
+
+                                val responseJson = Gson().toJson(AnkiConnectResponse(id, null))
+                                call.respondText(responseJson, ContentType.Application.Json)
                             }
                         } catch (e: Exception) {
-                            sendLog("⚠️ エラー: ${e.message}")
-                            call.respondText(Gson().toJson(AnkiConnectResponse(null, e.message)), ContentType.Application.Json)
+                            sendLog("❌ 受信エラー: ${e.message}")
+                            val errJson = Gson().toJson(AnkiConnectResponse(null, e.message))
+                            call.respondText(errJson, ContentType.Application.Json)
                         }
                     }
                 }
             }
             server?.start(wait = false)
-            isRunning = true // ★ 起動フラグON
+            isRunning = true // ★ ON
             sendLog("🟢 サーバー起動成功: http://127.0.0.1:8765")
         } catch (e: Exception) {
-            val isBindError = e is BindException || e.cause is BindException || e.message?.contains("Address already in use") == true
-            if (isBindError) sendLog("❌ ポート8765は既に使用されています。") else sendLog("❌ 起動失敗: ${e.message}")
+            sendLog("❌ 起動失敗: ${e.message}")
             stopSelf()
         }
     }
@@ -98,21 +101,25 @@ class AnkiConnectService : Service() {
         val uriStr = prefs.getString("media_folder_uri", null) ?: return
         val rootFolder = DocumentFile.fromTreeUri(this, Uri.parse(uriStr)) ?: return
 
-        val mediaFolder = rootFolder.findFile("collection.media") ?: run {
-            sendLog("⚠️ collection.media が見つかりません。AnkiDroidフォルダを選択していますか？")
-            return
-        }
+        // collection.media を自動特定
+        val mediaFolder = rootFolder.findFile("collection.media") ?: rootFolder
 
         try {
             val pureB64 = if (b64.contains(",")) b64.substringAfter(",") else b64
             val decodedData = Base64.decode(pureB64, Base64.DEFAULT)
-            val ext = MimeTypeMap.getFileExtensionFromUrl(name).lowercase()
-            val mime = MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "application/octet-stream"
+            val extension = MimeTypeMap.getFileExtensionFromUrl(name).lowercase()
+            val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension) ?: "application/octet-stream"
 
-            mediaFolder.createFile(mime, name)?.let { file ->
-                contentResolver.openOutputStream(file.uri)?.use { out -> out.write(decodedData); out.flush() }
+            mediaFolder.createFile(mimeType, name)?.let { file ->
+                contentResolver.openOutputStream(file.uri)?.use { out ->
+                    out.write(decodedData)
+                    out.flush()
+                }
+                sendLog("🖼 画像保存: $name")
             }
-        } catch (e: Exception) {}
+        } catch (e: Exception) {
+            sendLog("❌ 画像保存エラー: ${e.message}")
+        }
     }
 
     private fun saveDebugJsonOverwrite(json: String) {
@@ -123,13 +130,16 @@ class AnkiConnectService : Service() {
             folder.createFile("application/json", "anki_debug.json")?.let { file ->
                 contentResolver.openOutputStream(file.uri)?.use { it.write(json.toByteArray()) }
             }
+            sendLog("📝 デバッグJSONを保存しました")
         } catch (e: Exception) {}
     }
 
     private fun generateCompareKey(html: String): String {
         val imgRegex = Regex("ap_[a-zA-Z0-9]+\\.png")
         val images = imgRegex.findAll(html).map { it.value }.toList().sorted().joinToString(",")
-        var text = html.replace(Regex("<[^>]*>"), "").replace(Regex("&[a-zA-Z0-9#]+;"), "").replace(Regex("[\\s　]+"), "")
+        var text = html.replace(Regex("<[^>]*>"), "")
+        text = text.replace(Regex("&[a-zA-Z0-9#]+;"), "")
+        text = text.replace(Regex("[\\s　]+"), "")
         return "$text||$images"
     }
 
@@ -138,11 +148,17 @@ class AnkiConnectService : Service() {
         return try {
             val api = AddContentApi(this)
             val deckId = api.deckList.entries.find { it.value == "応用情報" }?.key ?: api.addNewDeck("応用情報")
-            val modelId = api.modelList.entries.find { it.value == "AP過去問モデル" }?.key ?: return null
+            val modelId = api.modelList.entries.find { it.value == "AP過去問モデル" }?.key ?: run {
+                sendLog("❌ エラー: 'AP過去問モデル' が見つかりません。")
+                return null
+            }
 
             val fields = api.getFieldList(modelId)
             val data = Array(fields.size) { "" }
-            note.fields?.forEach { (k, v) -> val i = fields.indexOf(k); if (i != -1) data[i] = v }
+            note.fields?.forEach { (k, v) ->
+                val i = fields.indexOf(k)
+                if (i != -1) data[i] = v
+            }
 
             val tags = note.tags?.toSet() ?: emptySet()
             val firstFieldRaw = data.firstOrNull() ?: ""
@@ -152,12 +168,13 @@ class AnkiConnectService : Service() {
             val prefs = getSharedPreferences("AnkiPrefs", Context.MODE_PRIVATE)
             val uriStr = prefs.getString("media_folder_uri", null)
 
+            // --- 物理DBへのアクセス (以前のコードの欠点を解消) ---
             if (uriStr != null) {
                 val rootFolder = DocumentFile.fromTreeUri(this, Uri.parse(uriStr))
                 val dbFile = rootFolder?.findFile("collection.anki2")
 
                 if (dbFile != null) {
-                    sendLog("🔍 [バックドア] 物理DBを発見。直接解析を開始します...")
+                    sendLog("🔍 データベース照合中...")
                     val tempDb = File(cacheDir, "temp_anki.db")
                     contentResolver.openInputStream(dbFile.uri)?.use { input ->
                         tempDb.outputStream().use { output -> input.copyTo(output) }
@@ -173,38 +190,42 @@ class AnkiConnectService : Service() {
                         val existingFirstFieldRaw = flds.substringBefore("\u001F")
                         val existingCompareKey = generateCompareKey(existingFirstFieldRaw)
 
-                        checkedCount++
-                        if (checkedCount == 1) {
-                            sendLog("📝 [診断] 新規キー: ${newCompareKey.take(20)}...")
-                            sendLog("📝 [診断] 既存キー: ${existingCompareKey.take(20)}...")
+                        if (checkedCount == 0) {
+                            sendLog("📝 [診断] 新規キー(先頭15字): ${newCompareKey.take(15)}...")
+                            sendLog("📝 [診断] 既存キー(先頭15字): ${existingCompareKey.take(15)}...")
                         }
 
                         if (existingCompareKey == newCompareKey) {
                             existingNoteId = id
                             break
                         }
+                        checkedCount++
                     }
                     cursor.close(); db.close(); tempDb.delete()
-                    sendLog("✅ [バックドア] 解析完了。対象件数: $checkedCount")
+                    sendLog("✅ 照合完了。対象件数: $checkedCount")
                 } else {
-                    sendLog("⚠️ collection.anki2 が見つかりません。AnkiDroidフォルダを選択していますか？")
+                    sendLog("⚠️ collection.anki2 が見つかりません。Ankiフォルダ設定を確認してください。")
                 }
             }
 
             if (existingNoteId != null) {
                 val values = ContentValues().apply {
                     put("flds", data.joinToString("\u001F"))
-                    put("tags", if (tags.isNotEmpty()) " " + tags.joinToString(" ") + " " else "")
+                    put("tags", " " + (note.tags?.joinToString(" ") ?: "") + " ")
                 }
                 val notesUri = Uri.parse("content://com.ichi2.anki.flashcards/notes")
                 val updateUri = ContentUris.withAppendedId(notesUri, existingNoteId!!)
                 contentResolver.update(updateUri, values, null, null)
 
-                sendLog("🔄 既存のカードを上書き更新しました (ID: $existingNoteId)")
+                sendLog("🔄 ✅ 既存のカードを上書き更新しました (ID: $existingNoteId)")
                 existingNoteId
             } else {
                 val newId = api.addNote(modelId, deckId!!, data, tags)
-                sendLog("✨ 新規カードとして追加しました (ID: $newId)")
+                if (newId != null) {
+                    sendLog("✨ ✅ 新規カードとして追加しました (ID: $newId)")
+                } else {
+                    sendLog("❌ 追加失敗: APIがNULLを返しました。")
+                }
                 newId
             }
         } catch (e: Exception) {
@@ -215,11 +236,14 @@ class AnkiConnectService : Service() {
 
     private fun sendLog(msg: String) {
         Log.d(TAG, msg)
-        sendBroadcast(Intent("com.kuni256.ANKI_LOG").apply { putExtra("log_msg", msg); setPackage(packageName) })
+        sendBroadcast(Intent("com.kuni256.ANKI_LOG").apply {
+            putExtra("log_msg", msg)
+            setPackage(packageName)
+        })
     }
 
     override fun onDestroy() {
-        isRunning = false // ★ 起動フラグOFF
+        isRunning = false // ★ OFF
         sendLog("⏹ サービスを終了しました")
         server?.stop(500, 1000)
         super.onDestroy()
