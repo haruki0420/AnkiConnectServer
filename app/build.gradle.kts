@@ -29,6 +29,14 @@ android {
             )
         }
     }
+    packaging {
+        resources {
+            excludes += setOf(
+                "META-INF/INDEX.LIST",
+                "META-INF/io.netty.versions.properties" // 念のためこちらも除外
+            )
+        }
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -44,16 +52,15 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
-    // --- ここから下を追加 ---
-    // Ktor Server (ローカルサーバーを立てるため)
-    implementation("io.ktor:ktor-server-core:2.3.5")
-    implementation("io.ktor:ktor-server-netty:2.3.5")
+    implementation("io.ktor:ktor-server-core:2.3.12")
+    implementation("io.ktor:ktor-server-cio:2.3.12") // CIOのままにします
+    implementation("io.ktor:ktor-server-cors:2.3.12")
+    implementation("io.ktor:ktor-server-content-negotiation:2.3.12")
+    implementation("io.ktor:ktor-serialization-gson:2.3.12")
 
-    // Ktor CORS (Tampermonkeyブラウザからの通信を許可するため)
-    implementation("io.ktor:ktor-server-cors:2.3.5")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
 
-    // Ktor JSON & Gson (送られてきたJSONデータを読み取るため)
-    implementation("io.ktor:ktor-server-content-negotiation:2.3.5")
-    implementation("io.ktor:ktor-serialization-gson:2.3.5")
-    // --- ここまで ---
+    implementation("com.github.ankidroid:Anki-Android:api-v1.1.0")
+    implementation("androidx.documentfile:documentfile:1.0.1")
 }
