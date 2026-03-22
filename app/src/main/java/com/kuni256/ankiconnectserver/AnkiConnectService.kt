@@ -2,12 +2,10 @@ package com.kuni256.ankiconnectserver
 
 import android.app.*
 import android.content.*
-import android.database.sqlite.SQLiteDatabase
 import android.net.Uri
 import android.os.*
 import android.util.Base64
 import android.util.Log
-import android.webkit.MimeTypeMap
 import androidx.core.app.NotificationCompat
 import androidx.documentfile.provider.DocumentFile
 import com.ichi2.anki.api.AddContentApi
@@ -20,17 +18,11 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.plugins.cors.routing.*
-import java.io.File
 import java.net.BindException
 
 class AnkiConnectService : Service() {
     private var server: CIOApplicationEngine? = null
     private val TAG = "AnkiConnectServer"
-
-    // ★ 復活：UIのスイッチと連動するためのフラグ
-    companion object {
-        var isRunning = false
-    }
 
     override fun onCreate() {
         super.onCreate()
@@ -53,10 +45,8 @@ class AnkiConnectService : Service() {
         try {
             server = embeddedServer(CIO, port = 8765, host = "127.0.0.1") {
                 install(CORS) {
-                    allowMethod(HttpMethod.Post)
-                    allowMethod(HttpMethod.Options)
-                    allowHeader(HttpHeaders.ContentType)
-                    allowHeader("Access-Control-Request-Private-Network")
+                    allowMethod(HttpMethod.Post); allowMethod(HttpMethod.Options)
+                    allowHeader(HttpHeaders.ContentType); allowHeader("Access-Control-Request-Private-Network")
                     anyHost()
                 }
                 routing {
@@ -74,52 +64,49 @@ class AnkiConnectService : Service() {
                                 val note = req.params?.note
                                 note?.picture?.forEach { saveMediaFast(it.filename, it.data) }
 
-                                val id = upsertAnkiNote(note)
+                                val id = addAnkiNote(note)
+                                val responseBody = Gson().toJson(AnkiConnectResponse(id, null))
+                                call.respondText(responseBody, ContentType.Application.Json)
 
-                                val responseJson = Gson().toJson(AnkiConnectResponse(id, null))
-                                call.respondText(responseJson, ContentType.Application.Json)
+                                if (id != null) sendLog("✅ 追加成功: ID $id")
+                                else sendLog("❌ 追加失敗 (モデル名等を確認)")
                             }
                         } catch (e: Exception) {
-                            sendLog("❌ 受信エラー: ${e.message}")
-                            val errJson = Gson().toJson(AnkiConnectResponse(null, e.message))
-                            call.respondText(errJson, ContentType.Application.Json)
+                            val errBody = Gson().toJson(AnkiConnectResponse(null, e.message))
+                            call.respondText(errBody, ContentType.Application.Json)
                         }
                     }
                 }
             }
             server?.start(wait = false)
-            isRunning = true // ★ ON
             sendLog("🟢 サーバー起動成功: http://127.0.0.1:8765")
+
         } catch (e: Exception) {
-            sendLog("❌ 起動失敗: ${e.message}")
+            // ★★★ ポート競合エラーの判定と停止処理 ★★★
+            val isBindError = e is BindException || e.cause is BindException || e.message?.contains("Address already in use") == true
+
+            if (isBindError) {
+                sendLog("❌ ポート8765は既に使用されています。")
+                sendLog("⚠️ 他のAnkiConnectサーバーを停止してから再試行してください。")
+            } else {
+                sendLog("❌ サーバー起動失敗: ${e.message}")
+            }
+
+            // サーバーが動かない場合はサービスを継続する意味がないので、即座に終了させる
+            Log.e(TAG, "Fatal Server Error", e)
             stopSelf()
         }
     }
 
-    private fun saveMediaFast(name: String, b64: String) {
-        val prefs = getSharedPreferences("AnkiPrefs", Context.MODE_PRIVATE)
-        val uriStr = prefs.getString("media_folder_uri", null) ?: return
-        val rootFolder = DocumentFile.fromTreeUri(this, Uri.parse(uriStr)) ?: return
-
-        // collection.media を自動特定
-        val mediaFolder = rootFolder.findFile("collection.media") ?: rootFolder
-
+    private fun saveMediaFast(filename: String, b64: String) {
+        val uriStr = getSharedPreferences("AnkiPrefs", Context.MODE_PRIVATE).getString("media_folder_uri", null) ?: return
+        val folder = DocumentFile.fromTreeUri(this, Uri.parse(uriStr))
         try {
-            val pureB64 = if (b64.contains(",")) b64.substringAfter(",") else b64
-            val decodedData = Base64.decode(pureB64, Base64.DEFAULT)
-            val extension = MimeTypeMap.getFileExtensionFromUrl(name).lowercase()
-            val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension) ?: "application/octet-stream"
-
-            mediaFolder.createFile(mimeType, name)?.let { file ->
-                contentResolver.openOutputStream(file.uri)?.use { out ->
-                    out.write(decodedData)
-                    out.flush()
-                }
-                sendLog("🖼 画像保存: $name")
+            val decoded = Base64.decode(if (b64.contains(",")) b64.substringAfter(",") else b64, Base64.DEFAULT)
+            folder?.createFile("application/octet-stream", filename)?.let { file ->
+                contentResolver.openOutputStream(file.uri)?.use { out -> out.write(decoded) }
             }
-        } catch (e: Exception) {
-            sendLog("❌ 画像保存エラー: ${e.message}")
-        }
+        } catch (e: Exception) { Log.e(TAG, "Media Save Error", e) }
     }
 
     private fun saveDebugJsonOverwrite(json: String) {
@@ -130,108 +117,23 @@ class AnkiConnectService : Service() {
             folder.createFile("application/json", "anki_debug.json")?.let { file ->
                 contentResolver.openOutputStream(file.uri)?.use { it.write(json.toByteArray()) }
             }
-            sendLog("📝 デバッグJSONを保存しました")
-        } catch (e: Exception) {}
+        } catch (e: Exception) { }
     }
 
-    private fun generateCompareKey(html: String): String {
-        val imgRegex = Regex("ap_[a-zA-Z0-9]+\\.png")
-        val images = imgRegex.findAll(html).map { it.value }.toList().sorted().joinToString(",")
-        var text = html.replace(Regex("<[^>]*>"), "")
-        text = text.replace(Regex("&[a-zA-Z0-9#]+;"), "")
-        text = text.replace(Regex("[\\s　]+"), "")
-        return "$text||$images"
-    }
-
-    private fun upsertAnkiNote(note: Note?): Long? {
+    private fun addAnkiNote(note: Note?): Long? {
         if (note == null) return null
         return try {
             val api = AddContentApi(this)
-            val deckId = api.deckList.entries.find { it.value == "応用情報" }?.key ?: api.addNewDeck("応用情報")
-            val modelId = api.modelList.entries.find { it.value == "AP過去問モデル" }?.key ?: run {
-                sendLog("❌ エラー: 'AP過去問モデル' が見つかりません。")
-                return null
-            }
-
+            val deckId = api.deckList.entries.find { it.value == (note.deckName ?: "応用情報") }?.key ?: api.addNewDeck(note.deckName ?: "応用情報")
+            val modelId = api.modelList.entries.find { it.value == (note.modelName ?: "AP過去問モデル") }?.key ?: return null
             val fields = api.getFieldList(modelId)
             val data = Array(fields.size) { "" }
             note.fields?.forEach { (k, v) ->
                 val i = fields.indexOf(k)
                 if (i != -1) data[i] = v
             }
-
-            val tags = note.tags?.toSet() ?: emptySet()
-            val firstFieldRaw = data.firstOrNull() ?: ""
-            val newCompareKey = generateCompareKey(firstFieldRaw)
-
-            var existingNoteId: Long? = null
-            val prefs = getSharedPreferences("AnkiPrefs", Context.MODE_PRIVATE)
-            val uriStr = prefs.getString("media_folder_uri", null)
-
-            // --- 物理DBへのアクセス (以前のコードの欠点を解消) ---
-            if (uriStr != null) {
-                val rootFolder = DocumentFile.fromTreeUri(this, Uri.parse(uriStr))
-                val dbFile = rootFolder?.findFile("collection.anki2")
-
-                if (dbFile != null) {
-                    sendLog("🔍 データベース照合中...")
-                    val tempDb = File(cacheDir, "temp_anki.db")
-                    contentResolver.openInputStream(dbFile.uri)?.use { input ->
-                        tempDb.outputStream().use { output -> input.copyTo(output) }
-                    }
-
-                    val db = SQLiteDatabase.openDatabase(tempDb.absolutePath, null, SQLiteDatabase.OPEN_READONLY)
-                    val cursor = db.rawQuery("SELECT id, flds FROM notes WHERE mid = ?", arrayOf(modelId.toString()))
-
-                    var checkedCount = 0
-                    while (cursor.moveToNext()) {
-                        val id = cursor.getLong(0)
-                        val flds = cursor.getString(1)
-                        val existingFirstFieldRaw = flds.substringBefore("\u001F")
-                        val existingCompareKey = generateCompareKey(existingFirstFieldRaw)
-
-                        if (checkedCount == 0) {
-                            sendLog("📝 [診断] 新規キー(先頭15字): ${newCompareKey.take(15)}...")
-                            sendLog("📝 [診断] 既存キー(先頭15字): ${existingCompareKey.take(15)}...")
-                        }
-
-                        if (existingCompareKey == newCompareKey) {
-                            existingNoteId = id
-                            break
-                        }
-                        checkedCount++
-                    }
-                    cursor.close(); db.close(); tempDb.delete()
-                    sendLog("✅ 照合完了。対象件数: $checkedCount")
-                } else {
-                    sendLog("⚠️ collection.anki2 が見つかりません。Ankiフォルダ設定を確認してください。")
-                }
-            }
-
-            if (existingNoteId != null) {
-                val values = ContentValues().apply {
-                    put("flds", data.joinToString("\u001F"))
-                    put("tags", " " + (note.tags?.joinToString(" ") ?: "") + " ")
-                }
-                val notesUri = Uri.parse("content://com.ichi2.anki.flashcards/notes")
-                val updateUri = ContentUris.withAppendedId(notesUri, existingNoteId!!)
-                contentResolver.update(updateUri, values, null, null)
-
-                sendLog("🔄 ✅ 既存のカードを上書き更新しました (ID: $existingNoteId)")
-                existingNoteId
-            } else {
-                val newId = api.addNote(modelId, deckId!!, data, tags)
-                if (newId != null) {
-                    sendLog("✨ ✅ 新規カードとして追加しました (ID: $newId)")
-                } else {
-                    sendLog("❌ 追加失敗: APIがNULLを返しました。")
-                }
-                newId
-            }
-        } catch (e: Exception) {
-            sendLog("❌ Upsert失敗: ${e.message}")
-            null
-        }
+            api.addNote(modelId, deckId!!, data, note.tags?.toSet() ?: emptySet())
+        } catch (e: Exception) { null }
     }
 
     private fun sendLog(msg: String) {
@@ -243,7 +145,6 @@ class AnkiConnectService : Service() {
     }
 
     override fun onDestroy() {
-        isRunning = false // ★ OFF
         sendLog("⏹ サービスを終了しました")
         server?.stop(500, 1000)
         super.onDestroy()

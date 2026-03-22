@@ -1,77 +1,81 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/main_layout"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="24dp"
-    android:gravity="center_horizontal"
-    android:background="#F5F7FA">
+    android:padding="16dp">
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
-        android:text="AnkiConnect Server"
-        android:textColor="#2C3E50"
-        android:textSize="24sp"
+        android:text="AnkiConnect サーバー状態"
+        android:textSize="20sp"
         android:textStyle="bold" />
 
-    <Switch
-        android:id="@+id/switch_server"
+    <TextView
+        android:id="@+id/text_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="権限を確認中..."
+        android:textColor="#FF0000" />
+
+    <Button
+        android:id="@+id/button_select_media"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="画像フォルダを選択する (必須)"
+        android:backgroundTint="#FF9800" />
+
+    <Button
+        android:id="@+id/button_select_debug"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="ログ保存先を選択する (任意)"
+        android:backgroundTint="#2196F3" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:orientation="horizontal">
+        <Button
+            android:id="@+id/button_start"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="サーバー開始" />
+        <Button
+            android:id="@+id/button_stop"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="サーバー停止" />
+    </LinearLayout>
+
+    <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="サーバー停止中"
-        android:textColor="#34495E"
-        android:textSize="16sp"
+        android:text="実行ログ:"
+        android:layout_marginTop="20dp"
         android:textStyle="bold" />
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
-        android:orientation="vertical"
-        android:background="#FFFFFF"
-        android:padding="16dp"
-        android:elevation="2dp">
-        <TextView android:id="@+id/tv_perm_storage" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="ストレージ権限：確認中..." />
-        <TextView android:id="@+id/tv_perm_notification" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="通知権限：確認中..." />
-        <Button android:id="@+id/btn_request_perms" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="権限を許可する" />
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:orientation="vertical"
-        android:background="#FFFFFF"
-        android:padding="16dp"
-        android:elevation="2dp">
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="1. Ankiプロジェクトフォルダ" android:textSize="12sp" />
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-            <Button android:id="@+id/btn_anki_folder" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="選択" />
-            <TextView android:id="@+id/tv_anki_folder" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:text="未設定" android:singleLine="true" android:ellipsize="middle" />
-        </LinearLayout>
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:text="2. ログ保存フォルダ" android:textSize="12sp" />
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-            <Button android:id="@+id/btn_log_folder" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="選択" />
-            <TextView android:id="@+id/tv_log_folder" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:text="未設定" android:singleLine="true" android:ellipsize="middle" />
-        </LinearLayout>
-    </LinearLayout>
-
-    <CheckBox android:id="@+id/cb_dev_mode" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:text="開発者モード (詳細ログを表示)" />
-
     <ScrollView
-        android:id="@+id/scroll_logs"
+        android:id="@+id/scroll_view"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
+        android:background="#F0F0F0"
         android:layout_marginTop="8dp"
-        android:background="#2C3E50"
-        android:padding="12dp"
-        android:visibility="gone">
-        <TextView android:id="@+id/tv_logs" android:layout_width="match_parent" android:layout_height="wrap_content" android:fontFamily="monospace" android:textColor="#ECF0F1" android:textSize="12sp" />
+        android:padding="8dp">
+        <TextView
+            android:id="@+id/text_logs"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:text="サーバーの起動を待機しています...\n"
+            android:textSize="12sp" />
     </ScrollView>
 </LinearLayout>
