@@ -1,0 +1,21 @@
+{
+  "name": "Android Kotlin Environment",
+  "image": "mcr.microsoft.com/devcontainers/java:17-bullseye",
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:1": {},
+    "ghcr.io/devcontainers/features/java:1": {
+      "version": "17",
+      "installGradle": "true"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "fwcd.kotlin",         // Kotlin言語サポート
+        "vscjava.vscode-java-pack",
+        "vscjava.vscode-gradle" // Gradleビルド用
+      ]
+    }
+  },
+  "postCreateCommand": "bash .devcontainer/setup-android.sh"
+}
